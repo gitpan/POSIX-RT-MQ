@@ -1,4 +1,4 @@
-# $Id: creation.t,v 1.4 2003/01/23 09:01:22 ilja Exp $
+# $Id: creation.t,v 1.5 2003/01/24 12:29:58 ilja Exp $
 
 use warnings;
 use strict;
@@ -10,7 +10,8 @@ BEGIN
     @tests = ( \&test_open, 
                \&test_unlink, 
                \&test_name, 
-               \&test_attributes );
+               \&test_attributes,
+               \&test_blocking );
     $testqueue = '/testq_42';
     
     plan tests => scalar @tests;
@@ -33,6 +34,8 @@ sub test_open
         $mq = POSIX::RT::MQ->open($testqueue, O_RDWR)            or  last;
         $mq = POSIX::RT::MQ->open($testqueue, O_RDONLY)          or  last;
         $mq = POSIX::RT::MQ->open($testqueue, O_WRONLY)          or  last;
+        $mq = POSIX::RT::MQ->open($testqueue, O_RDWR|O_NONBLOCK) or  last;
+        $mq = POSIX::RT::MQ->open($testqueue, O_RDWR|O_CREAT|O_EXCL) and  last;
 
         $result = 1;
     }        
@@ -94,3 +97,36 @@ sub test_attributes
     }
     $result;
 }    
+
+sub test_blocking
+{
+    POSIX::RT::MQ->unlink($testqueue);
+    
+    my ($mq, $result, $a, $bl);
+    {
+        $a = { mq_maxmsg=>128, mq_msgsize=>256 };
+        $mq = POSIX::RT::MQ->open($testqueue, O_RDWR|O_CREAT, 0600, $a) or  last;
+
+        # blocking mode here ...
+
+        defined($bl = $mq->blocking)                                 or  last;
+        $a = $mq->attr                                               or  last; 
+        ($bl && !($a->{mq_flags} & O_NONBLOCK))                      or  last;
+
+        $bl == $mq->blocking(0)                                      or  last;
+
+        defined($bl = $mq->blocking)                                 or  last;
+        $a = $mq->attr                                               or  last; 
+        (!$bl && $a->{mq_flags} & O_NONBLOCK)                        or  last;
+
+        $bl == $mq->blocking(1)                                      or  last;
+
+        defined($bl = $mq->blocking)                                 or  last;
+        $a = $mq->attr                                               or  last; 
+        ($bl && !($a->{mq_flags} & O_NONBLOCK))                      or  last;
+
+        $result = 1;
+    }
+    $result;
+
+}

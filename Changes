@@ -1,4 +1,9 @@
-# $Id: Changes,v 1.1 2002/12/06 16:02:58 ilja Exp $
+# $Id: Changes,v 1.2 2003/01/24 15:15:33 ilja Exp $
+
+0.02 2003-01-23
+        Limited support for mq_notify() added;
+        Added blocking() method;
+        Fixed receive() method to return an empty list on error.
 
 0.01 2003-01-03
         First alpha release.

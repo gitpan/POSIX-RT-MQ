@@ -1,4 +1,4 @@
-POSIX/RT/MQ version 0.01
+POSIX/RT/MQ version 0.02
 ========================
 
 DESCRIPTION
@@ -13,8 +13,7 @@ part of POSIX RealTime Extension, namely:
   mq_getattr()
   mq_setattr()
   mq_unlink()
-  
-  mq_notify()  -- not yet supported by POSIX::RT::MQ
+  mq_notify()  -- limited support only
 
 
 PORTABILITY
@@ -59,5 +58,5 @@ Copyright (C) 2002 Ilja Tabachnik <billy@arnis-bsl.com>
 This library is free software; you can redistribute it and/or                   
 modify it under the same terms as Perl itself. 
 
-# $Id: README,v 1.6 2003/01/23 09:13:07 ilja Exp $
+# $Id: README,v 1.7 2003/01/24 15:15:33 ilja Exp $
 

@@ -3,17 +3,18 @@
 #include "XSUB.h"
 
 #include <mqueue.h>
+#include <signal.h>
 
-static char cvs_id[] = "$Id: MQ.xs,v 1.4 2003/01/23 09:01:22 ilja Exp $";
+static char cvs_id[] = "$Id: MQ.xs,v 1.6 2003/01/24 12:09:42 ilja Exp $";
 
 MODULE = POSIX::RT::MQ		PACKAGE = POSIX::RT::MQ
 PROTOTYPES: ENABLE
 
 mqd_t 
-mq_open(name,oflags,mode,attr=NULL)
+mq_open(name,oflag,mode,attr=NULL)
         char*  name 
-        int    oflags
-        mode_t mode
+        int    oflag
+        Mode_t mode
         SV*    attr
     PREINIT:
         mqd_t           mqdes;
@@ -23,7 +24,7 @@ mq_open(name,oflags,mode,attr=NULL)
         if (attr != NULL)
             mqa_ptr = (struct mq_attr*) SvPV(attr, mqa_len);
          /* check mqa_len ? */
-        mqdes = mq_open(name, oflags, mode, mqa_ptr);
+        mqdes = mq_open(name, oflag, mode, mqa_ptr);
         if (mqdes == (mqd_t)-1) { XSRETURN_UNDEF; }
         RETVAL = mqdes;
     OUTPUT:
@@ -94,17 +95,35 @@ mq_receive(mqdes, msg_max_len)
         ssize_t      msg_len;
         unsigned int msg_prio;
     PPCODE:
-        if ((msg_ptr = malloc(msg_max_len)) == NULL) { XSRETURN_UNDEF; }        
+        if ((msg_ptr = malloc(msg_max_len)) == NULL) { XSRETURN_EMPTY; }        
         msg_len = mq_receive(mqdes, msg_ptr, msg_max_len, &msg_prio);
         if (msg_len == -1)
         { 
             free(msg_ptr);
-            XSRETURN_UNDEF; 
+            XSRETURN_EMPTY;
         }
         XPUSHs(sv_2mortal(newSVpvn(msg_ptr, msg_len)));
         XPUSHs(sv_2mortal(newSVuv(msg_prio)));
         free(msg_ptr);
 
+int 
+mq_notify(mqdes, ...)
+        mqd_t  mqdes
+    PREINIT:
+        struct sigevent  sigev;
+        struct sigevent* sigevp = NULL;
+    CODE:
+        if (items > 1)
+        {
+            sigev.sigev_notify = SIGEV_SIGNAL;
+            sigev.sigev_signo  = SvIV(ST(1));
+            sigev.sigev_value.sival_int = 0;
+            sigevp = &sigev;
+        }
+        if (mq_notify(mqdes, sigevp) == -1) { XSRETURN_UNDEF; }
+        RETVAL = 1;
+    OUTPUT:
+        RETVAL
 
 
 SV*

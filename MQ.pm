@@ -1,16 +1,17 @@
 package POSIX::RT::MQ;
 
-# $Id: MQ.pm,v 1.6 2003/01/23 09:01:22 ilja Exp $
+# $Id: MQ.pm,v 1.10 2003/01/24 15:25:11 ilja Exp $
 
 use 5.006;
 use strict;
 use warnings;
 use Carp 'croak';
+use Fcntl 'O_NONBLOCK';
 
 require DynaLoader;
 
 our @ISA = qw(DynaLoader);
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 bootstrap POSIX::RT::MQ $VERSION;
 
@@ -64,7 +65,7 @@ sub send
 { 
     my $self = shift;
     (@_ >= 1 && @_ <= 2) or croak 'Usage: $mq->send($msg ,[ $prio ])';
-    mq_send( $self->{mqdes}, $_[0], ($_[1] || 0) ) ;
+    mq_send( $self->{mqdes}, $_[0], ($_[1] || 0) );
 }
 
 sub receive 
@@ -73,6 +74,31 @@ sub receive
     (@_ == 0) or croak 'Usage: $mq->receive()';
     my @result = mq_receive($self->{mqdes}, $self->{_saved_attr_}{mq_msgsize});
     wantarray ? @result : $result[0];
+}
+
+sub notify
+{ 
+    my $self = shift;
+    (@_ <= 1) or croak 'Usage: $mq->notify([ $signo ])';
+    mq_notify( $self->{mqdes}, @_ );
+}
+
+sub blocking
+{
+    my $self = shift;
+    (@_ <= 1) or croak 'Usage: $mq->blocking([ BOOL ])';
+
+    my $a = $self->attr()  or return undef;
+    my $old_blocking = ($a->{mq_flags} & O_NONBLOCK) ? 0 : 1;
+    if (@_) 
+    {
+        if ($_[0]) { $a->{mq_flags} &= (~O_NONBLOCK); }
+        else       { $a->{mq_flags} |= O_NONBLOCK;    }
+
+        $self->attr($a) or $old_blocking = undef;;
+    }
+
+    $old_blocking;
 }
 
 sub name { $_[0]->{name} }
@@ -229,6 +255,8 @@ pairs listed above.
 
 On error returns C<undef>.
 
+See also the description of C<blocking()> method.
+
 =item receive
 
 A wrapper for the C<mq_receive()> function.
@@ -271,8 +299,67 @@ functional (but 'anonymous') until closed by all current users. Also,
 subsequent calls to C<$mq-E<gt>name> will return C<undef> if C<$mq-E<gt>unlink>
 completes successfully.
 
+On errror returns C<undef>.
+
+=item notify([ $signo ])
+
+A limited wrapper for the C<mq_notify()> function.
+
+    my $got_usr1 = 0;
+    local $SIG{USR1} = sub { $got_usr1 = 1 };
+    $mq->notify(SIGUSR1)  or  warn "cannot notify(SIGUSR1): $!\n";
+
+If called with an argument C<$signo> this method registers the calling process
+to be notified of message arrival at an empty message queue in question.
+At any time, only one process may be registered for notification by a specific
+message queue. 
+
+If called without arguments and the process is currently registered for notification 
+by the message queue in question, the existing registration is removed.
+
+Return true on success, C<undef> on error.
+
+Currently this module dosn't support the full C<mq_notify()> semantic and doesn't
+let the user to provide his own C<struct sigevent>.
+
+The semantic of C<$mq-E<gt>notify($signo)> is equivalent in C to:
+        
+        struct sigevent sigev;
+        sigev.sigev_notify = SIGEV_SIGNAL;
+        sigev.sigev_signo  = $signo
+        sigev.sigev_value.sival_int = 0;
+        mq_notify(mqdes, &sigev);
+
+The semantic of C<$mq-E<gt>notify()> is equivalent in C to:
+
+        mq_notify(mqdes, NULL);
+
+Please refer to documents listed in L</SEE ALSO> for a complete description of notifications.
+
+=item blocking([ BOOL ])
+
+A covinience method.
+
+ $mq->blocking(0);
+ # now in non-blocking mode
+ ...
+ $mq->blocking(1);
+ # now in blocking mode
+
+If called with an argument C<blocking()> will turn on non-blocking behavior of
+the message queue in question if C<BOOL> is false, and turn it off if C<BOOL> is true.
+
+C<blocking()> will return the value of the previous setting, or the current setting 
+if C<BOOL> is not given.
+
+On errror returns C<undef>.
+
+You may get the same results by using the C<attr()> method.
+                          
 =item name
 
+A covinience method.
+ 
  $name = $mq->name();
 
 Returns either the queue name as it was supplied to C<open()>
@@ -283,7 +370,7 @@ or C<undef> if C<$mq-E<gt>unlink> was (successfully) called before.
 
 =head1 BUGS
 
-C<mq_notify()> function is not yet supported.
+C<mq_notify()> function is not fully supported.
 
 
 =head1 AUTHOR
