@@ -1,0 +1,12 @@
+# $Id: MANIFEST,v 1.4 2003/01/23 09:01:22 ilja Exp $
+
+Makefile.PL
+MANIFEST
+MQ.pm
+MQ.xs
+typemap
+README
+Changes
+t/creation.t
+t/transfer.t
+
