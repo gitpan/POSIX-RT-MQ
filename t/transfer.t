@@ -1,4 +1,4 @@
-# $Id: transfer.t,v 1.4 2003/01/23 09:01:22 ilja Exp $
+# $Id: transfer.t,v 1.5 2003/01/27 08:25:19 ilja Exp $
 
 use warnings;
 use strict;
@@ -20,7 +20,12 @@ BEGIN
 use Fcntl;
 use POSIX::RT::MQ;
 
-for (@tests) { ok $_->() }
+for (@tests)
+{ 
+    eval {$_->()}; 
+    if($@) { warn("\n$@"); ok(0) } 
+    else   { ok(1) } 
+} 
  
 
 
@@ -33,21 +38,21 @@ sub test_integrity
             my $attr = { mq_maxmsg=>$q_len, mq_msgsize=>$msg_len };
 
             POSIX::RT::MQ->unlink($testqueue);
-            my $mq = POSIX::RT::MQ->open($testqueue, O_RDWR|O_CREAT, 0600, $attr) or warn("open: $!\n"), return 0;
+            my $mq = POSIX::RT::MQ->open($testqueue, O_RDWR|O_CREAT, 0600, $attr) or die "cannot open($testqueue, O_RDWR|O_CREAT, 0600, ...): $!\n";
 
             my @messages = ();
             for (my $m=0; $m<$q_len; $m++)
             {
                 my ($msg, $prio) = construct_message($msg_len, $m);
                 push @messages, [$msg, $prio, $m];
-                $mq->send($msg, $prio) or warn("send: $!\n"), return 0;
+                $mq->send($msg, $prio)  or die "cannot send(...): $!\n";
             }
             @messages = sort { ($b->[1]<=>$a->[1]) || ($a->[2]<=>$b->[2]) } @messages;
             for (my $m=0; $m<$q_len; $m++)
             {
-                my ($msg,  $prio)  = $mq->receive or warn("receive: $!\n"), return 0;
+                my ($msg,  $prio)  = $mq->receive  or die "cannot receive(): $!\n";
                 my $saved = shift @messages;
-                $msg eq $saved->[0] && $prio == $saved->[1] or warn("unexpected message\n"), return 0;
+                $msg eq $saved->[0] && $prio == $saved->[1]  or die "unexpected message and (or) priority\n";
             }
        }
     }       
@@ -61,21 +66,21 @@ sub test_nonblocking
     my $attr = { mq_maxmsg=>$q_len, mq_msgsize=>$msg_len };
     
     POSIX::RT::MQ->unlink($testqueue);
-    my $mq = POSIX::RT::MQ->open($testqueue, O_RDWR|O_CREAT|O_NONBLOCK, 0600, $attr) or warn("open: $!\n"), return 0;
+    my $mq = POSIX::RT::MQ->open($testqueue, O_RDWR|O_CREAT|O_NONBLOCK, 0600, $attr)  or die "cannot open($testqueue, O_RDWR|O_CREAT, 0600, ...): $!\n";
     
     # receive from empty queue
-    $mq->receive and warn("receive from empty queue\n"), return 0;
+    $mq->receive  and die "receive() OK from empty queue\n";
     
     # fill the queue        
     for (my $m=0; $m<$q_len; $m++)
     {
         my ($msg, undef) = construct_message($msg_len, $m);
-        $mq->send($msg) or warn("send: $!\n"), return 0;
+        $mq->send($msg)  or die "cannot send(...): $!\n";
     }
     
     # send to full queue
     my ($msg, undef) = construct_message($msg_len, 0);
-    $mq->send($msg) and warn("send to full queue\n"), return 0;
+    $mq->send($msg)  and die "send() OK to full queue\n";
     
     1;      
 }
@@ -87,7 +92,7 @@ sub test_blocking
     my $attr    = { mq_maxmsg=>$q_len, mq_msgsize=>$msg_len };
     
     POSIX::RT::MQ->unlink($testqueue);
-    my $mq = POSIX::RT::MQ->open($testqueue, O_RDWR|O_CREAT, 0600, $attr) or warn("open: $!\n"), return 0;
+    my $mq = POSIX::RT::MQ->open($testqueue, O_RDWR|O_CREAT, 0600, $attr)  or die "cannot open($testqueue, O_RDWR|O_CREAT, 0600, ...): $!\n";
     
     # receive from empty queue
     {
@@ -95,14 +100,14 @@ sub test_blocking
         local $SIG{ALRM} = sub { $timeout = 'TIMEOUT' };
         alarm(5);
         $mq->receive;
-        $timeout eq 'TIMEOUT' or warn("receive didn't block\n"), return 0;
+        $timeout eq 'TIMEOUT'  or die "receive() didn't block\n";
     }
 
     # fill the queue    
     for (my $m=0; $m<$q_len; $m++)
     {
         my ($msg, undef) = construct_message($msg_len, $m);
-        $mq->send($msg) or warn("send: $!\n"), return 0;
+        $mq->send($msg)  or die "cannot send(...): $!\n";
     }
     
     # send to full queue
@@ -111,8 +116,8 @@ sub test_blocking
         local $SIG{ALRM} = sub { $timeout = 'TIMEOUT' };
         my ($msg, undef) = construct_message($msg_len, 0);
         alarm(5);
-        $mq->send($msg) and warn("send to full queue\n"), return 0;
-        $timeout eq 'TIMEOUT' or warn("send didn't block\n"), return 0;
+        $mq->send($msg);
+        $timeout eq 'TIMEOUT'  or die "send() didn't block\n";
     }
     
     1;      

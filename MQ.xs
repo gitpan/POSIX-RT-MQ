@@ -4,11 +4,46 @@
 
 #include <mqueue.h>
 #include <signal.h>
+#include <unistd.h>
 
-static char cvs_id[] = "$Id: MQ.xs,v 1.6 2003/01/24 12:09:42 ilja Exp $";
+static char cvs_id[] = "$Id: MQ.xs,v 1.8 2003/01/27 10:43:11 ilja Exp $";
+
+static int not_here(char *s)
+{
+    croak("POSIX::RT::MQ::%s not implemented on this architecture", s);
+    return -1;
+}
 
 MODULE = POSIX::RT::MQ		PACKAGE = POSIX::RT::MQ
 PROTOTYPES: ENABLE
+
+int 
+MQ_OPEN_MAX()
+    PREINIT:
+        int val=-1;
+    CODE:
+#ifdef  _SC_MQ_OPEN_MAX
+        val = sysconf(_SC_MQ_OPEN_MAX);
+#endif
+        if (val==-1) not_here("MQ_OPEN_MAX"); 
+        RETVAL=val;
+    OUTPUT:
+        RETVAL
+
+int 
+MQ_PRIO_MAX()
+    PREINIT:
+        int val=-1;
+    CODE:
+#ifdef _SC_MQ_PRIO_MAX
+        val = sysconf(_SC_MQ_PRIO_MAX);
+#endif
+        if (val==-1) not_here("MQ_PRIO_MAX");
+        RETVAL=val;
+    OUTPUT:
+        RETVAL
+
+
 
 mqd_t 
 mq_open(name,oflag,mode,attr=NULL)

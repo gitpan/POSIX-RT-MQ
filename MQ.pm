@@ -1,6 +1,6 @@
 package POSIX::RT::MQ;
 
-# $Id: MQ.pm,v 1.10 2003/01/24 15:25:11 ilja Exp $
+# $Id: MQ.pm,v 1.12 2003/01/28 07:10:03 ilja Exp $
 
 use 5.006;
 use strict;
@@ -11,7 +11,7 @@ use Fcntl 'O_NONBLOCK';
 require DynaLoader;
 
 our @ISA = qw(DynaLoader);
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 bootstrap POSIX::RT::MQ $VERSION;
 
@@ -367,7 +367,26 @@ or C<undef> if C<$mq-E<gt>unlink> was (successfully) called before.
 
 =back
 
+           
+=head1 CONSTANTS
 
+=over 4
+
+=item MQ_OPEN_MAX
+
+Access to the MQ_OPEN_MAX constant.
+
+ $open_max = POSIX::RT::MQ::MQ_OPEN_MAX;     
+
+=item MQ_PRIO_MAX
+
+Access to the MQ_PRIO_MAX constant.
+
+ $prio_max = POSIX::RT::MQ::MQ_PRIO_MAX;     
+
+=back
+
+           
 =head1 BUGS
 
 C<mq_notify()> function is not fully supported.
